@@ -3,9 +3,6 @@ require("dotenv").config();
 const {
   Client,
   GatewayIntentBits,
-  REST,
-  Routes,
-  SlashCommandBuilder,
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
@@ -20,46 +17,37 @@ const {
 
 const CONFIG = {
   token: process.env.TOKEN,
-  clientId: process.env.CLIENT_ID,
-  guildId: process.env.GUILD_ID,
 
   clanName: "DE3R CLAN",
 
-  // Kanał, na który ma się wysyłać panel ticketów po użyciu /panel
-  panelChannelId: "1389543966361387008",
+  // Panel wysyła się automatycznie na ten kanał.
+  panelChannelId: process.env.PANEL_CHANNEL_ID || "1389543966361387008",
 
-  // Rola officera — widzi tickety i może je zamykać
-  officerRoleId: "1389263773482614905",
+  // Officer widzi tickety i może je zamykać.
+  officerRoleId: process.env.OFFICER_ROLE_ID || "1389263773482614905",
 
-  // Kategoria, w której tworzą się tickety rekrutacyjne
-  rekrutacjaCategoryId: "1521151552637632522",
+  // Kategoria rekrutacji.
+  rekrutacjaCategoryId: process.env.REKRUTACJA_CATEGORY_ID || "1521151552637632522",
 
-  // Opcjonalnie: kategoria pomocy, możesz wpisać w .env POMOC_CATEGORY_ID=ID_KATEGORII
-  pomocCategoryId: process.env.POMOC_CATEGORY_ID || null,
+  // Opcjonalna kategoria pomocy. Jak puste, tworzy bez kategorii.
+  pomocCategoryId: process.env.POMOC_CATEGORY_ID || "",
 
   emojis: {
-    pomoc: {
-      id: "1521150283755814932",
-      name: "pomoc",
-      animated: false,
-    },
-    arrow: {
-      id: "1521150305046106172",
-      name: "arrow",
-      animated: true,
-    },
-    ticket: {
-      id: "1521150341570363442",
-      name: "ticket",
-      animated: false,
-    },
-    rekrutacja: {
-      id: "1521150168932548618",
-      name: "rekrutacja",
-      animated: false,
-    },
+    pomoc: { id: "1521150283755814932", name: "pomoc", animated: false },
+    arrow: { id: "1521150305046106172", name: "arrow", animated: true },
+    ticket: { id: "1521150341570363442", name: "ticket", animated: false },
+    rekrutacja: { id: "1521150168932548618", name: "rekrutacja", animated: false },
   },
 };
+
+if (!CONFIG.token) {
+  console.log("❌ Brak TOKEN w Railway Variables.");
+  process.exit(1);
+}
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds],
+});
 
 const emojiText = {
   pomoc: `<:pomoc:${CONFIG.emojis.pomoc.id}>`,
@@ -68,138 +56,221 @@ const emojiText = {
   rekrutacja: `<:rekrutacja:${CONFIG.emojis.rekrutacja.id}>`,
 };
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
-});
+const REQUIREMENTS = [
+  "Minimum 15 HUGE PETÓW",
+  "OBOWIĄZKOWA aktywność podczas EVENTÓW",
+  "WPŁATY GEMÓW na rozwój CLANU - minimum 3M TYGODNIOWO",
+  "WIEK: 13+ lub dojrzałe zachowanie",
+  "KULTURA OSOBISTA na CZACIE CLANOWYM",
+  "REGULARNA AKTYWNOŚĆ w GRZE - minimum 4 RAZY w TYGODNIU",
+  "ZAKAZ SCAMOWANIA, WYZYWANIA I TOKSYCZNEGO ZACHOWANIA",
+];
 
 function cleanName(name) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9ąćęłńóśźż]/gi, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 20) || "user";
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/gi, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 20) || "user"
+  );
 }
 
-async function registerCommands() {
-  const commands = [
-    new SlashCommandBuilder()
-      .setName("panel")
-      .setDescription("Wysyła panel ticketów DE3R CLAN na ustawiony kanał")
-      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  ].map((cmd) => cmd.toJSON());
+function createPanelEmbed() {
+  return new EmbedBuilder()
+    .setColor("#2f58ff")
+    .setTitle(`${emojiText.ticket} ${CONFIG.clanName} » TICKETY`)
+    .setDescription(
+      [
+        `${emojiText.arrow} **Wybierz kategorię z menu poniżej**`,
+        `${emojiText.arrow} Po wybraniu otworzy się okienko`,
+        `${emojiText.arrow} Wpiszesz swój **nick z Robloxa**`,
+        `${emojiText.arrow} Kategorie: **Pomoc** oraz **Rekrutacja**`,
+      ].join("\n")
+    )
+    .setFooter({ text: `© 2026 ${CONFIG.clanName}` });
+}
 
-  const rest = new REST({ version: "10" }).setToken(CONFIG.token);
+function createPanelMenu() {
+  return new StringSelectMenuBuilder()
+    .setCustomId("ticket_menu")
+    .setPlaceholder("🎫 Wybierz kategorię")
+    .addOptions([
+      {
+        label: "Pomoc",
+        description: "Wsparcie administracji",
+        value: "pomoc",
+        emoji: CONFIG.emojis.pomoc,
+      },
+      {
+        label: "Rekrutacja",
+        description: "Dołącz do DE3R CLAN",
+        value: "rekrutacja",
+        emoji: CONFIG.emojis.rekrutacja,
+      },
+    ]);
+}
 
-  await rest.put(
-    Routes.applicationGuildCommands(CONFIG.clientId, CONFIG.guildId),
-    { body: commands }
+function createRequirementsEmbed() {
+  return new EmbedBuilder()
+    .setColor("#2f58ff")
+    .setTitle(`${emojiText.rekrutacja} ${CONFIG.clanName} » WYMAGANIA REKRUTACJI`)
+    .setDescription(
+      [
+        "**WYMAGANIA DO CLANU DE3R:**",
+        "",
+        ...REQUIREMENTS.map((req) => `${emojiText.arrow} ${req}`),
+        "",
+        "**Czy spełniasz i zgadzasz się z wymaganiami?**",
+      ].join("\n")
+    )
+    .setFooter({ text: `© 2026 ${CONFIG.clanName}` });
+}
+
+function createRequirementsMenu() {
+  return new StringSelectMenuBuilder()
+    .setCustomId("rekrutacja_requirements")
+    .setPlaceholder("✅ Wybierz TAK lub NIE")
+    .addOptions([
+      {
+        label: "TAK",
+        description: "Spełniam i zgadzam się z wymaganiami",
+        value: "tak",
+        emoji: "✅",
+      },
+      {
+        label: "NIE",
+        description: "Nie spełniam wymagań",
+        value: "nie",
+        emoji: "❌",
+      },
+    ]);
+}
+
+async function sendPanelAutomatic() {
+  console.log("🔄 Próba wysłania panelu...");
+  console.log(`📌 PANEL_CHANNEL_ID: ${CONFIG.panelChannelId}`);
+
+  const channel = await client.channels.fetch(CONFIG.panelChannelId).catch((err) => {
+    console.log("❌ Nie udało się pobrać kanału. Sprawdź ID kanału i czy bot jest na serwerze.");
+    console.log(err);
+    return null;
+  });
+
+  if (!channel) return;
+
+  if (!channel.isTextBased()) {
+    console.log("❌ Ten kanał nie jest tekstowy.");
+    return;
+  }
+
+  const embed = createPanelEmbed();
+  const components = [new ActionRowBuilder().addComponents(createPanelMenu())];
+
+  let editedOldPanel = false;
+
+  try {
+    const messages = await channel.messages.fetch({ limit: 30 });
+    const oldPanel = messages.find((msg) => {
+      const title = msg.embeds?.[0]?.title || "";
+      return msg.author.id === client.user.id && title.includes(`${CONFIG.clanName} » TICKETY`);
+    });
+
+    if (oldPanel) {
+      await oldPanel.edit({ embeds: [embed], components });
+      editedOldPanel = true;
+      console.log(`✅ Stary panel został zaktualizowany na kanale #${channel.name}`);
+    }
+  } catch (err) {
+    console.log("⚠️ Bot nie może czytać historii wiadomości albo nie znalazł starego panelu. Wyślę nowy panel.");
+  }
+
+  if (!editedOldPanel) {
+    await channel.send({ embeds: [embed], components }).catch((err) => {
+      console.log("❌ Nie udało się wysłać panelu. Bot nie ma permisji na tym kanale.");
+      console.log(err);
+      return null;
+    });
+
+    console.log(`✅ Panel wysłany automatycznie na kanał #${channel.name}`);
+  }
+}
+
+function createTicketModal(selected) {
+  const modal = new ModalBuilder()
+    .setCustomId(`ticket_modal_${selected}`)
+    .setTitle(selected === "pomoc" ? "Pomoc - DE3R CLAN" : "Rekrutacja - DE3R CLAN");
+
+  const robloxNickInput = new TextInputBuilder()
+    .setCustomId("roblox_nick")
+    .setLabel("Podaj nick z Robloxa")
+    .setPlaceholder("Np. DE3R_Player123")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMinLength(3)
+    .setMaxLength(32);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(robloxNickInput)
   );
 
-  console.log("✅ Komenda /panel została załadowana.");
+  // Pole opisu zostaje tylko w POMOCY.
+  // W REKRUTACJI jest tylko nick Roblox + wcześniejszy wybór TAK/NIE do wymagań.
+  if (selected === "pomoc") {
+    const opisInput = new TextInputBuilder()
+      .setCustomId("opis")
+      .setLabel("Opisz swój problem")
+      .setPlaceholder("Napisz, w czym mamy pomóc...")
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMinLength(5)
+      .setMaxLength(800);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(opisInput)
+    );
+  }
+
+  return modal;
 }
 
 client.once("ready", async () => {
   console.log(`✅ Zalogowano jako ${client.user.tag}`);
+  console.log(`✅ Bot jest na ${client.guilds.cache.size} serwerach.`);
 
-  try {
-    await registerCommands();
-  } catch (err) {
-    console.error("❌ Błąd ładowania komend slash:", err);
-  }
+  setTimeout(async () => {
+    await sendPanelAutomatic();
+  }, 3000);
 });
 
 client.on("interactionCreate", async (interaction) => {
   try {
-    if (interaction.isChatInputCommand() && interaction.commandName === "panel") {
-      const panelChannel = await interaction.guild.channels.fetch(CONFIG.panelChannelId).catch(() => null);
+    if (interaction.isStringSelectMenu() && interaction.customId === "ticket_menu") {
+      const selected = interaction.values[0];
 
-      if (!panelChannel) {
+      if (selected === "rekrutacja") {
         return interaction.reply({
-          content: "❌ Nie znaleziono kanału panelu. Sprawdź ID kanału w CONFIG.panelChannelId.",
+          embeds: [createRequirementsEmbed()],
+          components: [new ActionRowBuilder().addComponents(createRequirementsMenu())],
           ephemeral: true,
         });
       }
 
-      const embed = new EmbedBuilder()
-        .setColor("#2f58ff")
-        .setTitle(`${emojiText.ticket} ${CONFIG.clanName} » TICKETY`)
-        .setDescription(
-          [
-            `${emojiText.arrow} **Wybierz kategorię z menu poniżej**`,
-            `${emojiText.arrow} Prywatny ticket z administracją`,
-            `${emojiText.arrow} Po wybraniu kategorii wpiszesz swój nick z Robloxa`,
-            `${emojiText.arrow} Kategorie: **Pomoc** oraz **Rekrutacja**`,
-          ].join("\n")
-        )
-        .setFooter({ text: `© 2026 ${CONFIG.clanName}` });
-
-      const menu = new StringSelectMenuBuilder()
-        .setCustomId("ticket_menu")
-        .setPlaceholder("🎫 Wybierz kategorię")
-        .addOptions([
-          {
-            label: "Pomoc",
-            description: "Wsparcie administracji",
-            value: "pomoc",
-            emoji: CONFIG.emojis.pomoc,
-          },
-          {
-            label: "Rekrutacja",
-            description: "Dołącz do DE3R CLAN",
-            value: "rekrutacja",
-            emoji: CONFIG.emojis.rekrutacja,
-          },
-        ]);
-
-      const row = new ActionRowBuilder().addComponents(menu);
-
-      await panelChannel.send({
-        embeds: [embed],
-        components: [row],
-      });
-
-      return interaction.reply({
-        content: `✅ Panel ticketów został wysłany na kanał <#${CONFIG.panelChannelId}>.`,
-        ephemeral: true,
-      });
+      return interaction.showModal(createTicketModal("pomoc"));
     }
 
-    if (interaction.isStringSelectMenu() && interaction.customId === "ticket_menu") {
-      const selected = interaction.values[0];
+    if (interaction.isStringSelectMenu() && interaction.customId === "rekrutacja_requirements") {
+      const value = interaction.values[0];
 
-      const modal = new ModalBuilder()
-        .setCustomId(`ticket_modal_${selected}`)
-        .setTitle(selected === "pomoc" ? "Pomoc - DE3R CLAN" : "Rekrutacja - DE3R CLAN");
+      if (value === "nie") {
+        return interaction.reply({
+          content: "❌ Nie możesz otworzyć rekrutacji, jeśli nie spełniasz wymagań DE3R CLAN.",
+          ephemeral: true,
+        });
+      }
 
-      const robloxNickInput = new TextInputBuilder()
-        .setCustomId("roblox_nick")
-        .setLabel("Podaj swój nick z Robloxa")
-        .setPlaceholder("Np. RobloxNick123")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(3)
-        .setMaxLength(32);
-
-      const opisInput = new TextInputBuilder()
-        .setCustomId("opis")
-        .setLabel(selected === "pomoc" ? "Opisz swój problem" : "Napisz krótko coś o sobie")
-        .setPlaceholder(
-          selected === "pomoc"
-            ? "Np. mam problem z..."
-            : "Np. wiek, doświadczenie, czemu chcesz dołączyć..."
-        )
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-        .setMinLength(5)
-        .setMaxLength(500);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(robloxNickInput),
-        new ActionRowBuilder().addComponents(opisInput)
-      );
-
-      return interaction.showModal(modal);
+      return interaction.showModal(createTicketModal("rekrutacja"));
     }
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith("ticket_modal_")) {
@@ -208,12 +279,14 @@ client.on("interactionCreate", async (interaction) => {
       const user = interaction.user;
 
       const robloxNick = interaction.fields.getTextInputValue("roblox_nick");
-      const opis = interaction.fields.getTextInputValue("opis");
+      const opis = selected === "pomoc"
+        ? interaction.fields.getTextInputValue("opis")
+        : null;
 
       const alreadyOpen = guild.channels.cache.find(
-        (ch) =>
-          ch.type === ChannelType.GuildText &&
-          ch.topic === `ticket-user-${user.id}`
+        (channel) =>
+          channel.type === ChannelType.GuildText &&
+          channel.topic === `ticket-user-${user.id}`
       );
 
       if (alreadyOpen) {
@@ -270,6 +343,34 @@ client.on("interactionCreate", async (interaction) => {
         ],
       });
 
+      const descLines = [
+        `${emojiText.arrow} **Użytkownik:** ${user}`,
+        `${emojiText.arrow} **Nick Roblox:** \`${robloxNick}\``,
+        `${emojiText.arrow} **Kategoria:** \`${selected === "pomoc" ? "Pomoc" : "Rekrutacja"}\``,
+      ];
+
+      if (selected === "rekrutacja") {
+        descLines.push(
+          `${emojiText.arrow} **Zgadza się z wymaganiami:** \`TAK\``,
+          "",
+          "**Wymagania DE3R CLAN:**",
+          ...REQUIREMENTS.map((req) => `${emojiText.arrow} ${req}`)
+        );
+      }
+
+      if (selected === "pomoc" && opis) {
+        descLines.push(
+          "",
+          `${emojiText.arrow} **Opis:**`,
+          `\`\`\`${opis}\`\`\``
+        );
+      }
+
+      descLines.push(
+        "",
+        `${emojiText.arrow} Officer odpowie najszybciej jak to możliwe.`
+      );
+
       const ticketEmbed = new EmbedBuilder()
         .setColor("#2f58ff")
         .setTitle(
@@ -277,18 +378,7 @@ client.on("interactionCreate", async (interaction) => {
             ? `${emojiText.pomoc} ${CONFIG.clanName} » POMOC`
             : `${emojiText.rekrutacja} ${CONFIG.clanName} » REKRUTACJA`
         )
-        .setDescription(
-          [
-            `${emojiText.arrow} **Użytkownik:** ${user}`,
-            `${emojiText.arrow} **Nick Roblox:** \`${robloxNick}\``,
-            `${emojiText.arrow} **Kategoria:** \`${selected === "pomoc" ? "Pomoc" : "Rekrutacja"}\``,
-            "",
-            `${emojiText.arrow} **Opis:**`,
-            `\`\`\`${opis}\`\`\``,
-            "",
-            `${emojiText.arrow} Officer odpowie najszybciej jak to możliwe.`,
-          ].join("\n")
-        )
+        .setDescription(descLines.join("\n"))
         .setFooter({ text: `© 2026 ${CONFIG.clanName}` });
 
       const closeButton = new ButtonBuilder()
@@ -297,12 +387,10 @@ client.on("interactionCreate", async (interaction) => {
         .setEmoji("🔒")
         .setStyle(ButtonStyle.Danger);
 
-      const row = new ActionRowBuilder().addComponents(closeButton);
-
       await ticketChannel.send({
         content: `${user} <@&${CONFIG.officerRoleId}>`,
         embeds: [ticketEmbed],
-        components: [row],
+        components: [new ActionRowBuilder().addComponents(closeButton)],
       });
 
       return interaction.reply({
@@ -330,19 +418,17 @@ client.on("interactionCreate", async (interaction) => {
       });
 
       setTimeout(async () => {
-        try {
-          await interaction.channel.delete();
-        } catch (err) {
-          console.error("❌ Nie udało się usunąć ticketu:", err);
-        }
+        await interaction.channel.delete().catch((error) => {
+          console.error("❌ Nie udało się usunąć ticketu:", error);
+        });
       }, 5000);
     }
-  } catch (err) {
-    console.error("❌ Błąd interactionCreate:", err);
+  } catch (error) {
+    console.error("❌ Błąd interactionCreate:", error);
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
-        content: "❌ Wystąpił błąd.",
+        content: `❌ Wystąpił błąd: ${error.message}`,
         ephemeral: true,
       }).catch(() => {});
     }
