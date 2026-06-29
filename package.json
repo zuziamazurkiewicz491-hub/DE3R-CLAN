@@ -1,7 +1,7 @@
 {
-  "name": "de3r-clan-ticket-bot-nick-roblox",
+  "name": "de3r-clan-bot-final-accept",
   "version": "1.0.0",
-  "description": "DE3R CLAN ticket bot z automatyczną zmianą nicku na Discordzie",
+  "description": "DE3R CLAN bot: tickety, weryfikacja, akceptacja rekrutacji przyciskiem",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
