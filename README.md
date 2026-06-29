@@ -1,13 +1,21 @@
-# DE3R CLAN Ticket Bot - Rekrutacja wymagania
+# DE3R CLAN Ticket Bot - Nick Roblox
 
 Zmiany:
-- panel wysyła się automatycznie po starcie
-- rekrutacja pokazuje wymagania DE3R CLAN
-- użytkownik wybiera TAK/NIE w menu
-- po wybraniu TAK otwiera się okienko na nick Roblox
-- po wybraniu NIE ticket się nie tworzy
-- w tickecie rekrutacji pokazuje się: `Zgadza się z wymaganiami: TAK`
-- pole `Napisz coś o sobie` jest usunięte z rekrutacji
+- po podaniu nicku Roblox bot próbuje zmienić nick użytkownika na serwerze
+- przykład: `ryzen` → `ryzen (ryzen777)`
+- działa przy Pomocy i Rekrutacji
+- w tickecie pokazuje, czy nick został zmieniony
+
+## Ważne
+
+Bot musi mieć uprawnienie:
+
+```txt
+Manage Nicknames / Zarządzanie pseudonimami
+```
+
+Rola bota musi być WYŻEJ niż rola osoby, której nick ma zmienić.
+Bot nie zmieni nicku właścicielowi serwera ani osobie z wyższą/równą rolą.
 
 ## Railway Variables
 
@@ -31,15 +39,3 @@ POMOC_CATEGORY_ID=
 ```txt
 npm start
 ```
-
-## Uprawnienia bota
-
-Bot musi mieć na kanale panelu:
-- View Channel
-- Send Messages
-- Embed Links
-- Read Message History
-- Use External Emojis
-
-Do tworzenia ticketów:
-- Manage Channels

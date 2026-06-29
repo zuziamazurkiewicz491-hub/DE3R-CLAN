@@ -77,6 +77,59 @@ function cleanName(name) {
   );
 }
 
+function makeServerNickname(member, robloxNick) {
+  // Usuwa stare "(coś)" z końca, żeby nie robiło się np. ryzen (old) (new)
+  const currentName = member.displayName || member.user.username;
+  const baseName = currentName.replace(/\s*\([^)]*\)\s*$/g, "").trim() || member.user.username;
+
+  const suffix = ` (${robloxNick})`;
+  const maxLength = 32;
+
+  // Discord nick na serwerze ma maksymalnie 32 znaki.
+  const maxBaseLength = maxLength - suffix.length;
+
+  if (maxBaseLength <= 0) {
+    return robloxNick.slice(0, maxLength);
+  }
+
+  return `${baseName.slice(0, maxBaseLength)}${suffix}`;
+}
+
+async function tryChangeMemberNickname(interaction, robloxNick) {
+  try {
+    const member = interaction.member;
+    const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe();
+
+    if (!botMember.permissions.has(PermissionFlagsBits.ManageNicknames)) {
+      return {
+        ok: false,
+        text: "Bot nie ma permisji `Manage Nicknames` / `Zarządzanie pseudonimami`.",
+      };
+    }
+
+    if (!member.manageable) {
+      return {
+        ok: false,
+        text: "Nie mogę zmienić nicku tej osoby, bo ma wyższą/równą rolę niż bot albo jest właścicielem serwera.",
+      };
+    }
+
+    const newNickname = makeServerNickname(member, robloxNick);
+    await member.setNickname(newNickname, `Nick Roblox podany w tickecie: ${robloxNick}`);
+
+    return {
+      ok: true,
+      text: newNickname,
+    };
+  } catch (error) {
+    console.log("❌ Nie udało się zmienić nicku:", error);
+    return {
+      ok: false,
+      text: "Nie udało się zmienić nicku. Sprawdź permisję bota i kolejność ról.",
+    };
+  }
+}
+
 function createPanelEmbed() {
   return new EmbedBuilder()
     .setColor("#2f58ff")
@@ -205,7 +258,7 @@ function createTicketModal(selected) {
   const robloxNickInput = new TextInputBuilder()
     .setCustomId("roblox_nick")
     .setLabel("Podaj nick z Robloxa")
-    .setPlaceholder("Np. DE3R_Player123")
+    .setPlaceholder("Np. ryzen777")
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMinLength(3)
@@ -216,7 +269,6 @@ function createTicketModal(selected) {
   );
 
   // Pole opisu zostaje tylko w POMOCY.
-  // W REKRUTACJI jest tylko nick Roblox + wcześniejszy wybór TAK/NIE do wymagań.
   if (selected === "pomoc") {
     const opisInput = new TextInputBuilder()
       .setCustomId("opis")
@@ -283,6 +335,8 @@ client.on("interactionCreate", async (interaction) => {
         ? interaction.fields.getTextInputValue("opis")
         : null;
 
+      const nicknameResult = await tryChangeMemberNickname(interaction, robloxNick);
+
       const alreadyOpen = guild.channels.cache.find(
         (channel) =>
           channel.type === ChannelType.GuildText &&
@@ -348,6 +402,13 @@ client.on("interactionCreate", async (interaction) => {
         `${emojiText.arrow} **Nick Roblox:** \`${robloxNick}\``,
         `${emojiText.arrow} **Kategoria:** \`${selected === "pomoc" ? "Pomoc" : "Rekrutacja"}\``,
       ];
+
+      if (nicknameResult.ok) {
+        descLines.push(`${emojiText.arrow} **Nick na serwerze zmieniony na:** \`${nicknameResult.text}\``);
+      } else {
+        descLines.push(`${emojiText.arrow} **Nick na serwerze:** \`nie zmieniono\``);
+        descLines.push(`${emojiText.arrow} **Powód:** ${nicknameResult.text}`);
+      }
 
       if (selected === "rekrutacja") {
         descLines.push(
