@@ -365,23 +365,26 @@ async function sendOrUpdateTicketPanel() {
 // WERYFIKACJA
 // =======================================================
 function generateMath() {
+  // Działania są maksymalnie do 10.
+  // W labelu modala NIE dajemy custom emoji, bo Discord ich tam nie renderuje
+  // i pokazuje brzydki tekst typu <a:nie:ID>.
   const isAdd = Math.random() > 0.5;
 
   if (isAdd) {
-    const a = Math.floor(Math.random() * 16);
-    const b = Math.floor(Math.random() * (31 - a));
+    const a = Math.floor(Math.random() * 11); // 0-10
+    const b = Math.floor(Math.random() * (11 - a)); // wynik maksymalnie 10
 
     return {
-      question: `${emojiText.tak} ${a} + ${b}`,
+      question: `${a} + ${b}`,
       answer: a + b,
     };
   }
 
-  const a = Math.floor(Math.random() * 31);
-  const b = Math.floor(Math.random() * (a + 1));
+  const a = Math.floor(Math.random() * 11); // 0-10
+  const b = Math.floor(Math.random() * (a + 1)); // wynik nie będzie ujemny
 
   return {
-    question: `${emojiText.nie} ${a} - ${b}`,
+    question: `${a} - ${b}`,
     answer: a - b,
   };
 }
@@ -787,7 +790,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setMinLength(1)
-        .setMaxLength(3);
+        .setMaxLength(2);
 
       modal.addComponents(new ActionRowBuilder().addComponents(input));
 

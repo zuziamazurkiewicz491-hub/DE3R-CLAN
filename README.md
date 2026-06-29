@@ -52,3 +52,10 @@ Rola bota musi być wyżej niż:
 - rola `1389323823240843365`
 - rola `1389266494784802930`
 - role osób, którym ma zmieniać nick
+
+
+## Poprawka weryfikacji
+
+- działania w weryfikacji są teraz tylko do 10
+- w okienku nie pokazuje już tekstu typu `<a:nie:ID>`
+- przykład działania: `Ile to: 7 + 2 ?`
