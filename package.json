@@ -1,0 +1,13 @@
+{
+  "name": "de3r-clan-ticket-bot",
+  "version": "1.0.0",
+  "description": "Ticket bot DE3R CLAN z modalem Roblox nick",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5"
+  }
+}
